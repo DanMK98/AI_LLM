@@ -15,7 +15,7 @@ def main(argv=None):
         "--checkpoint",
         type=Path,
         default=(
-            Path(__file__).resolve().parent / "transformer_context64_refine" / "best.pt"
+            Path(__file__).resolve().parent / "transformer_fresh_context128" / "best.pt"
         ),
     )
     parser.add_argument("--prompt", help="Starting text; defaults to checkpoint seed text")
