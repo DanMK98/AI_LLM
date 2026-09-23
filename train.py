@@ -65,7 +65,7 @@ checkpoint_path = Path(__file__).parent / "best_model.pt"
 best_val_loss = float("inf")
 best_weights = None
 
-for step in range(10000):
+for step in range(30000):
     model.train()
     inputs, targets = get_batch(train_data)
 
@@ -75,7 +75,7 @@ for step in range(10000):
     loss.backward()
     optimizer.step()
 
-    if (step + 1) % 1000 == 0:
+    if (step + 1) % 3000 == 0:
         model.eval()
         train_loss = evaluate(train_data)
         val_loss = evaluate(val_data)
