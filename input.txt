@@ -1,0 +1,8 @@
+hello world. hello there. how are you?
+i am learning to build a language model.
+a language model learns patterns from text.
+we turn characters into numbers.
+we train the model to predict the next character.
+the model makes predictions and learns from its errors.
+hello again. learning takes time and practice.
+in the end, this is a fun project!

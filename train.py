@@ -35,8 +35,8 @@ with torch.no_grad():
 
         print(f"{id_to_char[i]!r} → {id_to_char[predicted_id]!r}")
 
-# Start with 'h'
-current_id = characters.index("h")
+# Start with the first character of the training text and generate 50 more characters
+current_id = tokens[0]
 generated = [current_id]
 
 with torch.no_grad():
