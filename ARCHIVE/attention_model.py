@@ -43,7 +43,7 @@ class AttentionLanguageModel(nn.Module):
 
 
 if __name__ == "__main__":
-    from tokenizer import characters, tokens
+    from ARCHIVE.tokenizer import characters, tokens
 
     torch.manual_seed(42)
 

@@ -11,10 +11,12 @@ class MultiHeadAttention(nn.Module):
         assert embedding_size % num_heads == 0
         head_size = embedding_size // num_heads
 
-        self.heads = nn.ModuleList([
-            CausalSelfAttention(embedding_size, head_size)
-            for _ in range(num_heads)
-        ])
+        self.heads = nn.ModuleList(
+            [
+                CausalSelfAttention(embedding_size, head_size)
+                for _ in range(num_heads)
+            ]
+        )
 
         self.projection = nn.Linear(embedding_size, embedding_size)
 
@@ -81,10 +83,12 @@ class TransformerLanguageModel(nn.Module):
             context_size, embedding_size
         )
 
-        self.blocks = nn.ModuleList([
-            TransformerBlock(embedding_size, num_heads)
-            for _ in range(num_layers)
-        ])
+        self.blocks = nn.ModuleList(
+            [
+                TransformerBlock(embedding_size, num_heads)
+                for _ in range(num_layers)
+            ]
+        )
         self.final_norm = nn.LayerNorm(embedding_size)
         self.output_layer = nn.Linear(embedding_size, vocab_size)
 

@@ -36,15 +36,15 @@ model = nn.Sequential(
 optimizer = torch.optim.Adam(model.parameters(), lr=0.005)
 loss_function = nn.CrossEntropyLoss()
 
+
 def get_batch(source):
     starts = torch.randint(
         len(source) - context_size, (batch_size,)
     )
 
-    inputs = torch.stack([
-        source[i.item():i.item() + context_size]
-        for i in starts
-    ])
+    inputs = torch.stack(
+        [source[i.item():i.item() + context_size] for i in starts]
+    )
     targets = source[starts + context_size]
 
     return inputs, targets
@@ -84,16 +84,19 @@ for step in range(30000):
             best_val_loss = val_loss
             best_weights = deepcopy(model.state_dict())
 
-            torch.save({
-                "model_state": best_weights,
-                "characters": characters,
-                "context_size": context_size,
-                "embedding_size": embedding_size,
-                "hidden_size": hidden_size,
-                "seed_tokens": tokens[:context_size],
-                "step": step + 1,
-                "val_loss": val_loss,
-            }, checkpoint_path)
+            torch.save(
+                {
+                    "model_state": best_weights,
+                    "characters": characters,
+                    "context_size": context_size,
+                    "embedding_size": embedding_size,
+                    "hidden_size": hidden_size,
+                    "seed_tokens": tokens[:context_size],
+                    "step": step + 1,
+                    "val_loss": val_loss,
+                },
+                checkpoint_path,
+            )
 
             print("Saved a new best model.")
 

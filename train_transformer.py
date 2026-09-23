@@ -1,10 +1,12 @@
 """CUDA-aware transformer training with portable, resumable checkpoints."""
+
 import argparse
 import random
 from pathlib import Path
 
 import torch
 import torch.nn.functional as F
+
 from transformer_model import TransformerLanguageModel
 
 ROOT = Path(__file__).resolve().parent
@@ -36,16 +38,27 @@ def evaluate(model, source, config, device):
     model.eval()
     # Fixed evaluation samples do not advance the training generator.
     generator = torch.Generator().manual_seed(123)
-    losses = [calculate_loss(model, *get_batch(
-        source, generator, model.context_size, config["batch_size"], device
-    )).item() for _ in range(config["eval_batches"])]
+    losses = [
+        calculate_loss(
+            model,
+            *get_batch(
+                source, generator, model.context_size, config["batch_size"], device
+            ),
+        ).item()
+        for _ in range(config["eval_batches"])
+    ]
     return sum(losses) / len(losses)
 
 
 def capture_rng(train_rng):
-    return dict(python=random.getstate(), torch_cpu=torch.get_rng_state(),
-                torch_cuda=torch.cuda.get_rng_state_all() if torch.cuda.is_available() else [],
-                train=train_rng.get_state())
+    return dict(
+        python=random.getstate(),
+        torch_cpu=torch.get_rng_state(),
+        torch_cuda=(
+            torch.cuda.get_rng_state_all() if torch.cuda.is_available() else []
+        ),
+        train=train_rng.get_state(),
+    )
 
 
 def restore_rng(states, train_rng):
@@ -67,16 +80,27 @@ def save_checkpoint(path, checkpoint):
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     source = parser.add_mutually_exclusive_group()
-    source.add_argument("--weights", type=Path, help="Load weights only; defaults to existing two-block checkpoint")
+    source.add_argument(
+        "--weights",
+        type=Path,
+        help="Load weights only; defaults to existing two-block checkpoint",
+    )
     source.add_argument("--resume", type=Path, help="Restore a full training checkpoint")
     source.add_argument("--scratch", action="store_true")
     parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
     parser.add_argument("--steps", type=int, default=10000, help="Additional optimizer steps")
     parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--eval-every", type=int, default=2000)
+    parser.add_argument("--eval-every", type=int, default=200)
     parser.add_argument("--eval-batches", type=int, default=50)
-    parser.add_argument("--learning-rate", type=float, default=None,
-                        help="Override Adam learning rate, including on resume; new runs default to 0.0003")
+    parser.add_argument(
+        "--learning-rate",
+        type=float,
+        default=None,
+        help=(
+            "Override Adam learning rate, including on resume; "
+            "new runs default to 0.0003"
+        ),
+    )
     parser.add_argument("--output-dir", type=Path, default=ROOT / "transformer_checkpoints")
     args = parser.parse_args(argv)
     if min(args.steps, args.batch_size, args.eval_every, args.eval_batches) < 1 or (args.learning_rate is not None and args.learning_rate <= 0):
@@ -88,10 +112,19 @@ def main(argv=None):
     args = parse_args(argv)
     device = select_device(args.device)
     source = args.resume or args.weights or (None if args.scratch else LEGACY)
-    checkpoint = torch.load(source, map_location="cpu", weights_only=True) if source else None
-    if args.resume and not all(key in checkpoint for key in (
-        "optimizer_state", "rng_states", "architecture", "training_config", "best_val_loss"
-    )):
+    checkpoint = (
+        torch.load(source, map_location="cpu", weights_only=True) if source else None
+    )
+    if args.resume and not all(
+        key in checkpoint
+        for key in (
+            "optimizer_state",
+            "rng_states",
+            "architecture",
+            "training_config",
+            "best_val_loss",
+        )
+    ):
         raise ValueError("This checkpoint supports weights only; use --weights instead of --resume.")
     latest = args.output_dir.resolve() / "latest.pt"
     best = args.output_dir.resolve() / "best.pt"
@@ -99,9 +132,11 @@ def main(argv=None):
         raise ValueError("Output paths must not overwrite the input weights checkpoint.")
     if not args.resume and (latest.exists() or best.exists()):
         raise ValueError("Output checkpoints already exist. Use --resume or a new --output-dir.")
+
     random.seed(42)
     torch.manual_seed(42)
     train_rng = torch.Generator().manual_seed(42)
+
     text = (ROOT / "input.txt").read_text(encoding="utf-8")
     characters = checkpoint["characters"] if checkpoint else sorted(set(text))
     mapping = {char: index for index, char in enumerate(characters)}
@@ -110,17 +145,30 @@ def main(argv=None):
     tokens = [mapping[char] for char in text]
     architecture = DEFAULT_ARCHITECTURE.copy()
     if checkpoint:
-        architecture.update(checkpoint.get("architecture", {
-            key: checkpoint.get(key, value) for key, value in architecture.items()
-        }))
+        architecture.update(
+            checkpoint.get(
+                "architecture",
+                {
+                    key: checkpoint.get(key, value)
+                    for key, value in architecture.items()
+                },
+            )
+        )
     architecture["vocab_size"] = len(characters)
     data = torch.tensor(tokens, dtype=torch.long)
     split = int(0.8 * len(data))
     train_data, val_data = data[:split], data[split:]
     if min(len(train_data), len(val_data)) <= architecture["context_size"]:
-        raise ValueError("Training and validation data must each exceed the context length.")
-    config = dict(batch_size=args.batch_size, eval_every=args.eval_every,
-                  eval_batches=args.eval_batches, learning_rate=0.0003 if args.learning_rate is None else args.learning_rate)
+        raise ValueError(
+            "Training and validation data must each exceed the context length."
+        )
+
+    config = dict(
+        batch_size=args.batch_size,
+        eval_every=args.eval_every,
+        eval_batches=args.eval_batches,
+        learning_rate=0.0003 if args.learning_rate is None else args.learning_rate,
+    )
     if args.resume:
         config = checkpoint["training_config"].copy()
         if args.learning_rate is not None:
@@ -144,12 +192,19 @@ def main(argv=None):
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     def snapshot(val_loss):
-        return dict(format_version=2, model_state=model.state_dict(),
-                    optimizer_state=optimizer.state_dict(), step=step,
-                    architecture=architecture, training_config=config,
-                    rng_states=capture_rng(train_rng), characters=characters,
-                    seed_tokens=tokens[:model.context_size], val_loss=val_loss,
-                    best_val_loss=best_val_loss)
+        return dict(
+            format_version=2,
+            model_state=model.state_dict(),
+            optimizer_state=optimizer.state_dict(),
+            step=step,
+            architecture=architecture,
+            training_config=config,
+            rng_states=capture_rng(train_rng),
+            characters=characters,
+            seed_tokens=tokens[:model.context_size],
+            val_loss=val_loss,
+            best_val_loss=best_val_loss,
+        )
 
     # Keep the imported model as the baseline best, even if fine-tuning worsens it.
     if not best.exists():

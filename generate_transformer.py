@@ -1,4 +1,5 @@
 """Sample text from a transformer checkpoint without training or changing it."""
+
 import argparse
 import math
 from pathlib import Path
@@ -10,7 +11,13 @@ from transformer_model import TransformerLanguageModel
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--checkpoint", type=Path, default=Path(__file__).resolve().parent / "transformer_finetune" / "best.pt")
+    parser.add_argument(
+        "--checkpoint",
+        type=Path,
+        default=(
+            Path(__file__).resolve().parent / "transformer_context64_refine" / "best.pt"
+        ),
+    )
     parser.add_argument("--prompt", help="Starting text; defaults to checkpoint seed text")
     parser.add_argument("--length", type=int, default=500, help="Number of new characters")
     parser.add_argument("--temperature", type=float, default=0.8)
@@ -28,15 +35,16 @@ def main(argv=None):
     characters = checkpoint["characters"]
     architecture = checkpoint.get("architecture")
     if architecture is None:
-        architecture = {key: checkpoint[key] for key in (
-            "context_size", "embedding_size", "num_heads", "num_layers"
-        )}
+        architecture = {
+            key: checkpoint[key]
+            for key in ("context_size", "embedding_size", "num_heads", "num_layers")
+        }
     architecture = dict(architecture, vocab_size=len(characters))
     mapping = {char: index for index, char in enumerate(characters)}
     if args.prompt is not None:
         unknown = set(args.prompt) - mapping.keys()
         if unknown:
-            parser.error(f"Prompt contains characters outside the vocabulary: {sorted(unknown)!r}")
+            parser.error(f"Prompt contains characters outside the vocabulary: {sorted(unknown)!r}" )
         generated = [mapping[char] for char in args.prompt]
     else:
         generated = list(checkpoint["seed_tokens"])

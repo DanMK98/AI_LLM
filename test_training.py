@@ -1,4 +1,5 @@
 """Short checkpoint integration tests; never write production checkpoints."""
+
 import hashlib
 import random
 import tempfile
@@ -7,6 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import torch
+
 import train_transformer as training
 
 
@@ -29,11 +31,20 @@ class TrainingTests(unittest.TestCase):
         before = hashlib.sha256(training.LEGACY.read_bytes()).hexdigest()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            common = ["--device", "cpu", "--batch-size", "2", "--eval-batches", "1", "--eval-every", "1"]
+            common = [
+                "--device", "cpu",
+                "--batch-size", "2",
+                "--eval-batches", "1",
+                "--eval-every", "1",
+            ]
             training.main(common + ["--steps", "2", "--output-dir", str(root / "whole")])
             training.main(common + ["--steps", "1", "--output-dir", str(root / "split")])
-            training.main(["--device", "cpu", "--steps", "1", "--resume",
-                           str(root / "split/latest.pt"), "--output-dir", str(root / "split")])
+            training.main([
+                "--device", "cpu",
+                "--steps", "1",
+                "--resume", str(root / "split/latest.pt"),
+                "--output-dir", str(root / "split"),
+            ])
             whole = torch.load(root / "whole/latest.pt", weights_only=True)
             split = torch.load(root / "split/latest.pt", weights_only=True)
             self.assertEqual(split["step"], 2)
@@ -43,9 +54,13 @@ class TrainingTests(unittest.TestCase):
             self.assertEqual(whole["val_loss"], split["val_loss"])
             best = torch.load(root / "split/best.pt", weights_only=True)
             self.assertEqual(best["val_loss"], split["best_val_loss"])
-            training.main(["--device", "cpu", "--steps", "1", "--resume",
-                           str(root / "split/best.pt"), "--learning-rate", "0.00003",
-                           "--output-dir", str(root / "lower_lr")])
+            training.main([
+                "--device", "cpu",
+                "--steps", "1",
+                "--resume", str(root / "split/best.pt"),
+                "--learning-rate", "0.00003",
+                "--output-dir", str(root / "lower_lr"),
+            ])
             lowered = torch.load(root / "lower_lr/latest.pt", weights_only=True)
             self.assertEqual(lowered["step"], best["step"] + 1)
             self.assertEqual(lowered["training_config"]["learning_rate"], 0.00003)
@@ -54,15 +69,33 @@ class TrainingTests(unittest.TestCase):
             for key, state in best["optimizer_state"]["state"].items():
                 self.assertEqual(lowered["optimizer_state"]["state"][key]["step"], state["step"] + 1)
             for payload in (split, best):
-                self.assertTrue(all(key in payload for key in (
-                    "model_state", "optimizer_state", "step", "architecture", "rng_states")))
+                self.assertTrue(
+                    all(
+                        key in payload
+                        for key in (
+                            "model_state",
+                            "optimizer_state",
+                            "step",
+                            "architecture",
+                            "rng_states",
+                        )
+                    )
+                )
                 self.assertEqual(payload["architecture"]["num_layers"], 2)
             if torch.cuda.is_available():
                 # Resume CPU optimizer state on GPU and then load GPU state on CPU.
-                training.main(["--device", "cuda", "--steps", "1", "--resume",
-                               str(root / "split/latest.pt"), "--output-dir", str(root / "cuda")])
-                training.main(["--device", "cpu", "--steps", "1", "--resume",
-                               str(root / "cuda/latest.pt"), "--output-dir", str(root / "back")])
+                training.main([
+                    "--device", "cuda",
+                    "--steps", "1",
+                    "--resume", str(root / "split/latest.pt"),
+                    "--output-dir", str(root / "cuda"),
+                ])
+                training.main([
+                    "--device", "cpu",
+                    "--steps", "1",
+                    "--resume", str(root / "cuda/latest.pt"),
+                    "--output-dir", str(root / "back"),
+                ])
         self.assertEqual(before, hashlib.sha256(training.LEGACY.read_bytes()).hexdigest())
 
 

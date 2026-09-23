@@ -3,8 +3,8 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 
-from tokenizer import characters, tokens
-from attention_model import AttentionLanguageModel
+from ARCHIVE.tokenizer import characters, tokens
+from ARCHIVE.attention_model import AttentionLanguageModel
 
 torch.manual_seed(42)
 

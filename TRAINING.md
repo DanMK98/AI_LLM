@@ -1,8 +1,36 @@
 # Transformer training
 
+## Context-128 experiment
+
+`prepare_context.py` supports larger contexts with
+`--context-size`. To reproduce the context-128 initialization in an empty directory:
+
+```powershell
+.\.venv\Scripts\python.exe prepare_context.py --source transformer_context64_refine/best.pt --context-size 128 --output-dir transformer_context128
+```
+
+This copies all 64 trained position rows, initializes 64 additional rows with
+normal(mean=0, std=1), and copies every other weight unchanged. It keeps 2 blocks,
+embedding size 192, and 4 heads. The source checkpoint stays intact. A fresh Adam
+optimizer, step zero, and fresh random states are saved in `initial.pt`.
+Training settings are inherited from the source, including its learning rate.
+
+Once prepared, train when ready:
+
+```powershell
+.\.venv\Scripts\python.exe train_transformer.py --resume transformer_context128/initial.pt --learning-rate 0.0003 --steps 1000 --output-dir transformer_context128
+```
+
+The explicit learning rate uses the same initial adaptation rate as the context-64
+experiment rather than the source's smaller refinement rate. New `best.pt` and
+`latest.pt` files stay in `transformer_context128`. Continue later from its
+`latest.pt`. The new position rows need training; extending context does not
+guarantee coherent dialogue. In this implementation, doubling context makes each
+attention score matrix four times larger, so training may use more GPU memory.
+
 ## Context-64 experiment
 
-`prepare_context64.py` creates `transformer_context64/initial.pt` from
+By default, `prepare_context.py` creates `transformer_context64/initial.pt` from
 `transformer_finetune/best.pt` without training. It preserves the source file,
 copies position embedding rows 0–31 exactly, and initializes rows 32–63 with
 PyTorch's embedding default normal distribution (mean 0, standard deviation 1),
@@ -25,7 +53,7 @@ baseline, then writes `best.pt` and `latest.pt` in `transformer_context64`.
 For later continuation, resume that directory's `latest.pt`. To sample it, use
 `generate_transformer.py --checkpoint transformer_context64/best.pt`.
 
-To prepare another experiment, run `prepare_context64.py --output-dir NEW_DIRECTORY`.
+To prepare another experiment, run `prepare_context.py --output-dir NEW_DIRECTORY`.
 
 ## Context-32 training
 
@@ -97,7 +125,7 @@ For a one-step smoke check:
 
 The script does not train when imported, and no longer samples text automatically
 after training. `generate.py` still targets the separate older `best_model.pt` model.
-To sample the fine-tuned transformer's best checkpoint without training:
+To sample the preferred refined context-64 checkpoint without training:
 
 ```powershell
 .\.venv\Scripts\python.exe generate_transformer.py --length 500 --temperature 0.8
@@ -105,7 +133,7 @@ To sample the fine-tuned transformer's best checkpoint without training:
 
 Use `--prompt "ROMEO:"` to supply starting text, `--seed 123` for another sample,
 or `--checkpoint PATH` for a different transformer checkpoint. The script defaults
-to `transformer_finetune/best.pt`, uses CUDA when available (CPU otherwise), and
+to `transformer_context64_refine/best.pt`, uses CUDA when available (CPU otherwise), and
 never writes to the checkpoint. Lower positive temperatures concentrate sampling
 on more likely characters; higher temperatures increase variety.
 
