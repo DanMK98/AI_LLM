@@ -75,7 +75,7 @@ for step in range(30000):
     loss.backward()
     optimizer.step()
 
-    if (step + 1) % 3000 == 0:
+    if (step + 1) % 500 == 0:
         model.eval()
         train_loss = evaluate(train_data)
         val_loss = evaluate(val_data)

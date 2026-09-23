@@ -43,6 +43,16 @@ class TrainingTests(unittest.TestCase):
             self.assertEqual(whole["val_loss"], split["val_loss"])
             best = torch.load(root / "split/best.pt", weights_only=True)
             self.assertEqual(best["val_loss"], split["best_val_loss"])
+            training.main(["--device", "cpu", "--steps", "1", "--resume",
+                           str(root / "split/best.pt"), "--learning-rate", "0.00003",
+                           "--output-dir", str(root / "lower_lr")])
+            lowered = torch.load(root / "lower_lr/latest.pt", weights_only=True)
+            self.assertEqual(lowered["step"], best["step"] + 1)
+            self.assertEqual(lowered["training_config"]["learning_rate"], 0.00003)
+            for group in lowered["optimizer_state"]["param_groups"]:
+                self.assertEqual(group["lr"], 0.00003)
+            for key, state in best["optimizer_state"]["state"].items():
+                self.assertEqual(lowered["optimizer_state"]["state"][key]["step"], state["step"] + 1)
             for payload in (split, best):
                 self.assertTrue(all(key in payload for key in (
                     "model_state", "optimizer_state", "step", "architecture", "rng_states")))

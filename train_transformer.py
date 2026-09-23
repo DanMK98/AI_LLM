@@ -75,10 +75,11 @@ def parse_args(argv=None):
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--eval-every", type=int, default=2000)
     parser.add_argument("--eval-batches", type=int, default=50)
-    parser.add_argument("--learning-rate", type=float, default=0.003)
+    parser.add_argument("--learning-rate", type=float, default=None,
+                        help="Override Adam learning rate, including on resume; new runs default to 0.0003")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "transformer_checkpoints")
     args = parser.parse_args(argv)
-    if min(args.steps, args.batch_size, args.eval_every, args.eval_batches) < 1 or args.learning_rate <= 0:
+    if min(args.steps, args.batch_size, args.eval_every, args.eval_batches) < 1 or (args.learning_rate is not None and args.learning_rate <= 0):
         parser.error("Step counts, batch sizes, and learning rate must be positive.")
     return args
 
@@ -119,9 +120,11 @@ def main(argv=None):
     if min(len(train_data), len(val_data)) <= architecture["context_size"]:
         raise ValueError("Training and validation data must each exceed the context length.")
     config = dict(batch_size=args.batch_size, eval_every=args.eval_every,
-                  eval_batches=args.eval_batches, learning_rate=args.learning_rate)
+                  eval_batches=args.eval_batches, learning_rate=0.0003 if args.learning_rate is None else args.learning_rate)
     if args.resume:
-        config = checkpoint["training_config"]
+        config = checkpoint["training_config"].copy()
+        if args.learning_rate is not None:
+            config["learning_rate"] = args.learning_rate
     model = TransformerLanguageModel(**architecture).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=config["learning_rate"])
     step, best_val_loss = 0, float("inf")
@@ -130,10 +133,14 @@ def main(argv=None):
     if args.resume:
         # Adam loads parameter states onto the corresponding parameter device.
         optimizer.load_state_dict(checkpoint["optimizer_state"])
+        if args.learning_rate is not None:
+            for group in optimizer.param_groups:
+                group["lr"] = args.learning_rate
         step, best_val_loss = checkpoint["step"], checkpoint["best_val_loss"]
         restore_rng(checkpoint["rng_states"], train_rng)
     print(f"Device: {device}; architecture: {architecture}")
     print(f"Starting at step {step}; running {args.steps} additional steps.")
+    print(f"Checkpoint: {source}; learning rate: {optimizer.param_groups[0]['lr']}")
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     def snapshot(val_loss):
