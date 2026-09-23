@@ -3,6 +3,7 @@
 import argparse
 import math
 from pathlib import Path
+from pyexpat import model
 
 import torch
 
@@ -15,12 +16,12 @@ def main(argv=None):
         "--checkpoint",
         type=Path,
         default=(
-            Path(__file__).resolve().parent / "transformer_fresh_context128" / "best.pt"
+            Path(__file__).resolve().parent / "finance_dropout_3blocks" / "best.pt"
         ),
     )
     parser.add_argument("--prompt", help="Starting text; defaults to checkpoint seed text")
     parser.add_argument("--length", type=int, default=500, help="Number of new characters")
-    parser.add_argument("--temperature", type=float, default=0.8)
+    parser.add_argument("--temperature", type=float, default=0.65)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
     args = parser.parse_args(argv)
@@ -53,6 +54,7 @@ def main(argv=None):
     model = TransformerLanguageModel(**architecture).to(device)
     model.load_state_dict(checkpoint["model_state"])
     model.eval()
+    
     generator = torch.Generator(device=device).manual_seed(args.seed)
     with torch.inference_mode():
         for _ in range(args.length):

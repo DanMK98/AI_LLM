@@ -11,7 +11,7 @@ from transformer_model import TransformerLanguageModel
 
 ROOT = Path(__file__).resolve().parent
 LEGACY = ROOT / "best_transformer_2blocks.pt"
-DEFAULT_ARCHITECTURE = dict(context_size=32, embedding_size=192, num_heads=4, num_layers=2)
+DEFAULT_ARCHITECTURE = dict(context_size=128, embedding_size=192, num_heads=4, num_layers=3)
 
 
 def select_device(choice):
@@ -89,7 +89,7 @@ def parse_args(argv=None):
     source.add_argument("--scratch", action="store_true")
     parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
     parser.add_argument("--steps", type=int, default=10000, help="Additional optimizer steps")
-    parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--batch-size", type=int, default=128)
     parser.add_argument("--eval-every", type=int, default=200)
     parser.add_argument("--eval-batches", type=int, default=50)
     parser.add_argument(

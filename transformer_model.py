@@ -54,11 +54,14 @@ class TransformerBlock(nn.Module):
             nn.Linear(4 * embedding_size, embedding_size),
         )
 
+        self.dropout = nn.Dropout(0.1)
+
     def forward(self, x):
         attended, weights = self.attention(self.norm1(x))
-        x = x + attended
+        x = x + self.dropout(self.feed_forward(self.norm2(x)))
 
-        x = x + self.feed_forward(self.norm2(x))
+        feed_forward_output = self.feed_forward(self.norm2(x))
+        x = x + self.dropout(attended)
 
         return x, weights
 
@@ -67,10 +70,10 @@ class TransformerLanguageModel(nn.Module):
     def __init__(
         self,
         vocab_size,
-        context_size=16,
-        embedding_size=32,
+        context_size=128,
+        embedding_size=192,
         num_heads=4,
-        num_layers=2,
+        num_layers=3,
     ):
         super().__init__()
 
