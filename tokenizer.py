@@ -16,3 +16,12 @@ decoded = ''.join(id_to_char[token] for token in tokens)
 print("Characters:", characters)
 print("Token IDs:", tokens)
 print("Decoded Text:", decoded)
+
+# All tokens except the last one
+inputs = tokens[:-1]
+
+# All tokens except the first one
+targets = tokens[1:]
+
+for current, following in zip(inputs, targets):
+    print(f"{id_to_char[current]!r} → {id_to_char[following]!r}")
