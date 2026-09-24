@@ -2,50 +2,61 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from attention import CausalSelfAttention
-
 
 class MultiHeadAttention(nn.Module):
     def __init__(self, embedding_size, num_heads):
         super().__init__()
 
         assert embedding_size % num_heads == 0
-        head_size = embedding_size // num_heads
 
-        self.heads = nn.ModuleList(
-            [
-                CausalSelfAttention(embedding_size, head_size)
-                for _ in range(num_heads)
-            ]
+        self.num_heads = num_heads
+        self.head_size = embedding_size // num_heads
+
+        # Produce all queries, then all keys, then all values.
+        self.qkv = nn.Linear(
+            embedding_size,
+            3 * embedding_size,
+            bias=False,
         )
 
         self.projection = nn.Linear(embedding_size, embedding_size)
 
     def forward(self, x):
-        # Each head's existing learned projections are preserved.
-        q = torch.stack([head.query(x) for head in self.heads], dim=1)
-        k = torch.stack([head.key(x) for head in self.heads], dim=1)
-        v = torch.stack([head.value(x) for head in self.heads], dim=1)
+        batch, positions, embedding_size = x.shape
 
-        # Shape: [batch, 4 heads, positions, 48 values per head].
+        # [batch, positions, 3 * embedding_size]
+        qkv = self.qkv(x)
+
+        # Each becomes [batch, positions, embedding_size].
+        q, k, v = qkv.chunk(3, dim=-1)
+
+        # Each becomes [batch, heads, positions, head_size].
+        q = q.reshape(
+            batch, positions, self.num_heads, self.head_size
+        ).transpose(1, 2)
+
+        k = k.reshape(
+            batch, positions, self.num_heads, self.head_size
+        ).transpose(1, 2)
+
+        v = v.reshape(
+            batch, positions, self.num_heads, self.head_size
+        ).transpose(1, 2)
+
         output = F.scaled_dot_product_attention(
-            q, k, v,
+            q,
+            k,
+            v,
             is_causal=True,
-
-            # If I wanna add attention dropout, I gotta explicitly disable it during evaluation, otherwise the model will be inconsistent.
-            # Code to do it is as follows: dropout_p=0.1 if self.training else 0.0
             dropout_p=0.0,
         )
 
-        # Join the four heads: [batch, positions, 192].
-        batch, heads, positions, head_size = output.shape
         combined = output.transpose(1, 2).reshape(
-            batch, positions, heads * head_size
+            batch, positions, embedding_size
         )
 
         return self.projection(combined), None
-
-
+    
 class TransformerBlock(nn.Module):
     def __init__(self, embedding_size, num_heads):
         super().__init__()
