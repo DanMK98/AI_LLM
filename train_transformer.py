@@ -11,7 +11,7 @@ from transformer_model import TransformerLanguageModel
 
 ROOT = Path(__file__).resolve().parent
 LEGACY = ROOT / "best_transformer_2blocks.pt"
-DEFAULT_ARCHITECTURE = dict(context_size=512, embedding_size=192, num_heads=4, num_layers=3)
+DEFAULT_ARCHITECTURE = dict(context_size=128, embedding_size=192, num_heads=4, num_layers=3)
 
 
 def select_device(choice):
@@ -90,7 +90,7 @@ def parse_args(argv=None):
     parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
     parser.add_argument("--steps", type=int, default=10000, help="Additional optimizer steps")
     parser.add_argument("--batch-size", type=int, default=128)
-    parser.add_argument("--eval-every", type=int, default=200)
+    parser.add_argument("--eval-every", type=int, default=None)
     parser.add_argument("--eval-batches", type=int, default=50)
     parser.add_argument(
         "--learning-rate",
@@ -103,7 +103,11 @@ def parse_args(argv=None):
     )
     parser.add_argument("--output-dir", type=Path, default=ROOT / "transformer_checkpoints")
     args = parser.parse_args(argv)
-    if min(args.steps, args.batch_size, args.eval_every, args.eval_batches) < 1 or (args.learning_rate is not None and args.learning_rate <= 0):
+    if (
+        min(args.steps, args.batch_size, args.eval_batches) < 1 
+        or (args.eval_every is not None and args.eval_every < 1)
+        or (args.learning_rate is not None and args.learning_rate <= 0)
+    ):
         parser.error("Step counts, batch sizes, and learning rate must be positive.")
     return args
 
@@ -165,14 +169,19 @@ def main(argv=None):
 
     config = dict(
         batch_size=args.batch_size,
-        eval_every=args.eval_every,
+        eval_every=200 if args.eval_every is None else args.eval_every,
         eval_batches=args.eval_batches,
         learning_rate=0.0003 if args.learning_rate is None else args.learning_rate,
     )
     if args.resume:
         config = checkpoint["training_config"].copy()
+
+        if args.eval_every is not None:
+            config["eval_every"] = args.eval_every
+
         if args.learning_rate is not None:
             config["learning_rate"] = args.learning_rate
+
     model = TransformerLanguageModel(**architecture).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=config["learning_rate"])
     step, best_val_loss = 0, float("inf")

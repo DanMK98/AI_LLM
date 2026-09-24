@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from attention import CausalSelfAttention
 
@@ -21,20 +22,28 @@ class MultiHeadAttention(nn.Module):
         self.projection = nn.Linear(embedding_size, embedding_size)
 
     def forward(self, x):
-        results = [head(x) for head in self.heads]
+        # Each head's existing learned projections are preserved.
+        q = torch.stack([head.query(x) for head in self.heads], dim=1)
+        k = torch.stack([head.key(x) for head in self.heads], dim=1)
+        v = torch.stack([head.value(x) for head in self.heads], dim=1)
 
-        # Join the information gathered by each head.
-        combined = torch.cat(
-            [output for output, weights in results],
-            dim=-1,
+        # Shape: [batch, 4 heads, positions, 48 values per head].
+        output = F.scaled_dot_product_attention(
+            q, k, v,
+            is_causal=True,
+
+            # If I wanna add attention dropout, I gotta explicitly disable it during evaluation, otherwise the model will be inconsistent.
+            # Code to do it is as follows: dropout_p=0.1 if self.training else 0.0
+            dropout_p=0.0,
         )
 
-        weights = torch.stack(
-            [weights for output, weights in results],
-            dim=1,
+        # Join the four heads: [batch, positions, 192].
+        batch, heads, positions, head_size = output.shape
+        combined = output.transpose(1, 2).reshape(
+            batch, positions, heads * head_size
         )
 
-        return self.projection(combined), weights
+        return self.projection(combined), None
 
 
 class TransformerBlock(nn.Module):
@@ -58,10 +67,10 @@ class TransformerBlock(nn.Module):
 
     def forward(self, x):
         attended, weights = self.attention(self.norm1(x))
-        x = x + self.dropout(self.feed_forward(self.norm2(x)))
+        x = x + self.dropout(attended)
 
         feed_forward_output = self.feed_forward(self.norm2(x))
-        x = x + self.dropout(attended)
+        x = x + self.dropout(feed_forward_output)
 
         return x, weights
 
@@ -70,7 +79,7 @@ class TransformerLanguageModel(nn.Module):
     def __init__(
         self,
         vocab_size,
-        context_size=512,
+        context_size=128,
         embedding_size=192,
         num_heads=4,
         num_layers=3,
