@@ -1,0 +1,9 @@
+{
+  "type": "byte_level_bpe",
+  "vocab_size": 2048,
+  "requested_vocab_size": 2048,
+  "min_frequency": 2,
+  "train_split_character_index": 2034166,
+  "text_sha256": "477a0495e40a0534a4e39c5b6ba3a573f1aa628c084017a3245e78d9c2b425e8",
+  "tokenizer_sha256": "bf09b10a17d968e83d5f49aca7070cc9edccbf9b20c293fc281cbd845c9e7d99"
+}

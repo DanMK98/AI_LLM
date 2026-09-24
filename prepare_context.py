@@ -9,6 +9,7 @@ import torch
 
 from train_transformer import ROOT, capture_rng, save_checkpoint
 from transformer_model import TransformerLanguageModel
+from text_tokenizer import tokenizer_from_checkpoint
 
 
 def prepare(source, output_dir, seed=42, context_size=64):
@@ -24,7 +25,8 @@ def prepare(source, output_dir, seed=42, context_size=64):
             key: original[key]
             for key in ("context_size", "embedding_size", "num_heads", "num_layers")
         }
-    architecture = dict(architecture, vocab_size=len(original["characters"]))
+    tokenizer = tokenizer_from_checkpoint(original)
+    architecture = dict(architecture, vocab_size=tokenizer.vocab_size)
     old_context_size = architecture["context_size"]
     if context_size <= old_context_size:
         raise ValueError("Target context must be larger than the source context.")
@@ -49,14 +51,14 @@ def prepare(source, output_dir, seed=42, context_size=64):
     optimizer = torch.optim.Adam(model.parameters(), lr=config["learning_rate"])
     train_rng = torch.Generator().manual_seed(seed)
     payload = dict(
-        format_version=2,
+        format_version=3,
         model_state=model.state_dict(),
         optimizer_state=optimizer.state_dict(),
         step=0,
         architecture=architecture,
         training_config=config,
         rng_states=capture_rng(train_rng),
-        characters=original["characters"],
+        **tokenizer.checkpoint_fields(),
         seed_tokens=list(original["seed_tokens"]),
         val_loss=None,
         best_val_loss=float("inf"),
@@ -70,6 +72,8 @@ def prepare(source, output_dir, seed=42, context_size=64):
             ),
         ),
     )
+    if "text_sha256" in original:
+        payload["text_sha256"] = original["text_sha256"]
     output_dir.mkdir(parents=True, exist_ok=True)
     path = output_dir / "initial.pt"
     save_checkpoint(path, payload)

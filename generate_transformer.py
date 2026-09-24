@@ -3,11 +3,11 @@
 import argparse
 import math
 from pathlib import Path
-from pyexpat import model
 
 import torch
 
 from transformer_model import TransformerLanguageModel
+from text_tokenizer import tokenizer_from_checkpoint
 
 
 def main(argv=None):
@@ -20,7 +20,7 @@ def main(argv=None):
         ),
     )
     parser.add_argument("--prompt", help="Starting text; defaults to checkpoint seed text")
-    parser.add_argument("--length", type=int, default=500, help="Number of new characters")
+    parser.add_argument("--length", type=int, default=500, help="New tokens (characters for character checkpoints, subwords for BPE)")
     parser.add_argument("--temperature", type=float, default=0.65)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
@@ -33,20 +33,21 @@ def main(argv=None):
     if device == "cuda" and not torch.cuda.is_available():
         parser.error("CUDA is unavailable; use --device cpu or auto.")
     checkpoint = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
-    characters = checkpoint["characters"]
+    tokenizer = tokenizer_from_checkpoint(checkpoint)
     architecture = checkpoint.get("architecture")
     if architecture is None:
         architecture = {
             key: checkpoint[key]
             for key in ("context_size", "embedding_size", "num_heads", "num_layers")
         }
-    architecture = dict(architecture, vocab_size=len(characters))
-    mapping = {char: index for index, char in enumerate(characters)}
+    if architecture.get("vocab_size", tokenizer.vocab_size) != tokenizer.vocab_size:
+        parser.error("Checkpoint architecture and tokenizer vocabulary sizes differ.")
+    architecture = dict(architecture, vocab_size=tokenizer.vocab_size)
     if args.prompt is not None:
-        unknown = set(args.prompt) - mapping.keys()
-        if unknown:
-            parser.error(f"Prompt contains characters outside the vocabulary: {sorted(unknown)!r}" )
-        generated = [mapping[char] for char in args.prompt]
+        try:
+            generated = tokenizer.encode(args.prompt)
+        except ValueError as error:
+            parser.error(str(error))
     else:
         generated = list(checkpoint["seed_tokens"])
     if not generated:
@@ -62,7 +63,7 @@ def main(argv=None):
             scores, _ = model(context)
             probabilities = torch.softmax(scores[0, -1] / args.temperature, dim=-1)
             generated.append(torch.multinomial(probabilities, 1, generator=generator).item())
-    print("".join(characters[token] for token in generated))
+    print(tokenizer.decode(generated))
 
 
 if __name__ == "__main__":
