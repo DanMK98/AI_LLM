@@ -11,7 +11,7 @@ from transformer_model import TransformerLanguageModel
 
 ROOT = Path(__file__).resolve().parent
 LEGACY = ROOT / "best_transformer_2blocks.pt"
-DEFAULT_ARCHITECTURE = dict(context_size=128, embedding_size=192, num_heads=4, num_layers=3)
+DEFAULT_ARCHITECTURE = dict(context_size=512, embedding_size=192, num_heads=4, num_layers=3)
 
 
 def select_device(choice):

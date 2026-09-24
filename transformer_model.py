@@ -70,7 +70,7 @@ class TransformerLanguageModel(nn.Module):
     def __init__(
         self,
         vocab_size,
-        context_size=128,
+        context_size=512,
         embedding_size=192,
         num_heads=4,
         num_layers=3,
@@ -85,6 +85,7 @@ class TransformerLanguageModel(nn.Module):
         self.position_embedding = nn.Embedding(
             context_size, embedding_size
         )
+        self.embedding_dropout = nn.Dropout(0.1)
 
         self.blocks = nn.ModuleList(
             [
@@ -107,6 +108,8 @@ class TransformerLanguageModel(nn.Module):
             self.token_embedding(token_ids)
             + self.position_embedding(positions)
         )
+
+        x = self.embedding_dropout(x)
 
         for block in self.blocks:
             x, weights = block(x)
