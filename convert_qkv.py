@@ -6,8 +6,8 @@ from transformer_model import TransformerLanguageModel
 
 
 
-source = Path("attention_experiment/best.pt")
-destination = Path("attention_experiment/best_qkv_weights.pt")
+source = Path(__file__).resolve().parent / "experiments" / "attention_experiment" / "best.pt"
+destination = source.with_name("best_qkv_weights.pt")
 
 checkpoint = torch.load(
     source,

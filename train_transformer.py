@@ -13,8 +13,8 @@ from transformer_model import TransformerLanguageModel
 from text_tokenizer import CharacterTokenizer, SubwordTokenizer, tokenizer_from_checkpoint
 
 ROOT = Path(__file__).resolve().parent
-LEGACY = ROOT / "best_transformer_2blocks.pt"
-DEFAULT_ARCHITECTURE = dict(context_size=128, embedding_size=192, num_heads=4, num_layers=3)
+LEGACY = ROOT / "checkpoints" / "best_transformer_2blocks.pt"
+DEFAULT_ARCHITECTURE = dict(context_size=256, embedding_size=320, num_heads=8, num_layers=5)
 
 
 def select_device(choice):
@@ -112,7 +112,7 @@ def parse_args(argv=None):
             "new runs default to 0.0003"
         ),
     )
-    parser.add_argument("--output-dir", type=Path, default=ROOT / "transformer_checkpoints")
+    parser.add_argument("--output-dir", type=Path, default=ROOT / "experiments" / "transformer_checkpoints")
     args = parser.parse_args(argv)
     if args.tokenizer and not args.scratch:
         parser.error("--tokenizer requires --scratch. Resume/weights use the checkpoint tokenizer.")
@@ -179,11 +179,11 @@ def main(argv=None):
     torch.manual_seed(42)
     train_rng = torch.Generator().manual_seed(42)
 
-    text = (ROOT / "input.txt").read_text(encoding="utf-8")
+    text = (ROOT / "data" / "input.txt").read_text(encoding="utf-8")
     text_sha256 = hashlib.sha256(text.encode("utf-8")).hexdigest()
     split = int(0.8 * len(text))
     if args.resume and checkpoint.get("text_sha256", text_sha256) != text_sha256:
-        raise ValueError("input.txt changed since this checkpoint; use --weights for a new run.")
+        raise ValueError("data/input.txt changed since this checkpoint; use --weights for a new run.")
     if checkpoint:
         tokenizer = tokenizer_from_checkpoint(checkpoint)
     elif args.tokenizer:
@@ -226,7 +226,11 @@ def main(argv=None):
     config = resolve_training_config(args, checkpoint)
 
     model = TransformerLanguageModel(**architecture).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=config["learning_rate"])
+    optimizer = torch.optim.AdamW(
+    model.parameters(),
+    lr=config["learning_rate"],
+    weight_decay=0.01,
+    )
     step, best_val_loss = 0, float("inf")
     if checkpoint:
         model.load_state_dict(checkpoint["model_state"])

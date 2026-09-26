@@ -40,11 +40,11 @@ def main():
     root = Path(__file__).resolve().parent
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--original", type=Path, default=root / "attention_experiment/best.pt"
+        "--original", type=Path, default=root / "experiments/attention_experiment/best.pt"
     )
     parser.add_argument(
         "--converted", type=Path,
-        default=root / "attention_experiment/best_qkv_weights.pt",
+        default=root / "experiments/attention_experiment/best_qkv_weights.pt",
     )
     parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
     args = parser.parse_args()

@@ -88,13 +88,13 @@ def prepare(source, output_dir, seed=42, context_size=64):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--source", type=Path, default=ROOT / "transformer_finetune" / "best.pt"
+        "--source", type=Path, default=ROOT / "experiments" / "transformer_finetune" / "best.pt"
     )
     parser.add_argument("--context-size", type=int, default=64)
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
-    output_dir = args.output_dir or ROOT / f"transformer_context{args.context_size}"
+    output_dir = args.output_dir or ROOT / "experiments" / f"transformer_context{args.context_size}"
     prepare(args.source, output_dir, args.seed, args.context_size)
 
 

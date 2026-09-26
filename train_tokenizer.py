@@ -18,7 +18,7 @@ def main():
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=ROOT / "finance_bpe_2048",
+        default=ROOT / "experiments" / "finance_bpe_2048",
     )
     args = parser.parse_args()
 
@@ -35,7 +35,7 @@ def main():
         parser.error("Tokenizer files already exist. Use another output directory.")
 
     # Match the current trainer's text loading and 80/20 split.
-    text = (ROOT / "input.txt").read_text(encoding="utf-8")
+    text = (ROOT / "data" / "input.txt").read_text(encoding="utf-8")
     split = int(0.8 * len(text))
     train_text = text[:split]
     val_text = text[split:]

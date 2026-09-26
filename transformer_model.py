@@ -48,7 +48,7 @@ class MultiHeadAttention(nn.Module):
             k,
             v,
             is_causal=True,
-            dropout_p=0.0,
+            dropout_p=0.1,
         )
 
         combined = output.transpose(1, 2).reshape(
@@ -90,10 +90,10 @@ class TransformerLanguageModel(nn.Module):
     def __init__(
         self,
         vocab_size,
-        context_size=128,
-        embedding_size=192,
-        num_heads=4,
-        num_layers=3,
+        context_size=256,
+        embedding_size=320,
+        num_heads=8,
+        num_layers=5,
     ):
         super().__init__()
 
