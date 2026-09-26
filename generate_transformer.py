@@ -21,10 +21,14 @@ def main(argv=None):
     )
     parser.add_argument("--prompt", help="Starting text; defaults to checkpoint seed text")
     parser.add_argument("--length", type=int, default=500, help="New tokens (characters for character checkpoints, subwords for BPE)")
-    parser.add_argument("--temperature", type=float, default=0.65)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto")
+    parser.add_argument("--temperature", type=float, default=0.65, help="Higher temperature means more randomness")
+    parser.add_argument("--top_k", type=int, default=0, help="0 for no top-k filtering")
+    parser.add_argument("--top_p", type=float, default=0.9, help="0.0 for no top-p filtering")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility")
+    parser.add_argument("--device", choices=["auto", "cpu", "cuda"], default="auto", help="Device to run on")
     args = parser.parse_args(argv)
+    if not math.isfinite(args.top_p) or not (0.0 <= args.top_p <= 1.0):
+        parser.error("Top-p must be a finite number between 0.0 and 1.0.")
     if args.length < 0 or not math.isfinite(args.temperature) or args.temperature <= 0:
         parser.error("Length must be nonnegative and temperature must be finite and positive.")
     device = args.device
@@ -62,6 +66,18 @@ def main(argv=None):
             context = torch.tensor([generated[-model.context_size:]], dtype=torch.long, device=device)
             scores, _ = model(context)
             probabilities = torch.softmax(scores[0, -1] / args.temperature, dim=-1)
+            if args.top_k > 0:
+                k = min(args.top_k, probabilities.size(-1))
+                indices_to_remove = probabilities < torch.topk(probabilities, k)[0][..., -1, None]
+                probabilities = probabilities.masked_fill(indices_to_remove, 0.0)
+            if args.top_p < 1.0:
+                sorted_probs, sorted_indices = torch.sort(probabilities, descending=True)
+                cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
+                indices_to_remove = cumulative_probs > args.top_p
+                indices_to_remove[..., 1:] = indices_to_remove[..., :-1].clone()
+                indices_to_remove[..., 0] = False
+                sorted_probs = sorted_probs.masked_fill(indices_to_remove, 0.0)
+                probabilities = torch.zeros_like(probabilities).scatter_(dim=-1, index=sorted_indices, src=sorted_probs)
             generated.append(torch.multinomial(probabilities, 1, generator=generator).item())
     print(tokenizer.decode(generated))
 

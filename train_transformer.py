@@ -14,7 +14,7 @@ from text_tokenizer import CharacterTokenizer, SubwordTokenizer, tokenizer_from_
 
 ROOT = Path(__file__).resolve().parent
 LEGACY = ROOT / "checkpoints" / "best_transformer_2blocks.pt"
-DEFAULT_ARCHITECTURE = dict(context_size=256, embedding_size=320, num_heads=8, num_layers=5)
+DEFAULT_ARCHITECTURE = dict(context_size=256, embedding_size=256, num_heads=8, num_layers=6)
 
 
 def select_device(choice):
@@ -229,7 +229,7 @@ def main(argv=None):
     optimizer = torch.optim.AdamW(
     model.parameters(),
     lr=config["learning_rate"],
-    weight_decay=0.01,
+    weight_decay=0.05,
     )
     step, best_val_loss = 0, float("inf")
     if checkpoint:

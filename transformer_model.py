@@ -48,7 +48,7 @@ class MultiHeadAttention(nn.Module):
             k,
             v,
             is_causal=True,
-            dropout_p=0.1,
+            dropout_p = 0.1 if self.training else 0.0
         )
 
         combined = output.transpose(1, 2).reshape(
@@ -74,7 +74,7 @@ class TransformerBlock(nn.Module):
             nn.Linear(4 * embedding_size, embedding_size),
         )
 
-        self.dropout = nn.Dropout(0.1)
+        self.dropout = nn.Dropout(0.2)
 
     def forward(self, x):
         attended, weights = self.attention(self.norm1(x))
@@ -91,9 +91,9 @@ class TransformerLanguageModel(nn.Module):
         self,
         vocab_size,
         context_size=256,
-        embedding_size=320,
+        embedding_size=256,
         num_heads=8,
-        num_layers=5,
+        num_layers=6,
     ):
         super().__init__()
 
@@ -105,7 +105,7 @@ class TransformerLanguageModel(nn.Module):
         self.position_embedding = nn.Embedding(
             context_size, embedding_size
         )
-        self.embedding_dropout = nn.Dropout(0.1)
+        self.embedding_dropout = nn.Dropout(0.2)
 
         self.blocks = nn.ModuleList(
             [
